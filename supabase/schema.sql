@@ -24,21 +24,36 @@ INSERT INTO accommodations (name, type, max_capacity, description) VALUES
   ('Área de Camping','camping', 500, 'Área de camping - cliente traz a própria barraca');
 
 
--- 2. PRICING
--- Prices per accommodation type, per date range
--- This lets you set different prices for holidays, weekends, etc.
-CREATE TABLE pricing (
+-- 2. SEASONS
+-- Special date ranges with different pricing (Réveillon, Carnaval, etc.)
+CREATE TABLE seasons (
   id SERIAL PRIMARY KEY,
-  accommodation_id INT NOT NULL REFERENCES accommodations(id),
-  date_start DATE NOT NULL,        -- start of this price period
-  date_end DATE NOT NULL,          -- end of this price period
-  price_per_night DECIMAL(10,2) NOT NULL,  -- price in BRL
-  label TEXT,                      -- e.g. "Réveillon", "Alta Temporada", "Normal"
+  name TEXT NOT NULL,            -- e.g. "Réveillon 2026/2027", "Carnaval 2027"
+  date_start DATE NOT NULL,
+  date_end DATE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 
--- 3. RESERVATIONS
+-- 3. PRICING
+-- Flexible pricing: supports per-night, per-person-per-night, and package pricing
+-- Guest tiers allow different prices based on party size (e.g. Chalé: casal R$300, 4 pessoas R$500)
+-- season_id = NULL means regular/default pricing
+CREATE TABLE pricing (
+  id SERIAL PRIMARY KEY,
+  accommodation_id INT NOT NULL REFERENCES accommodations(id),
+  season_id INT REFERENCES seasons(id),  -- NULL = regular pricing
+  min_guests INT NOT NULL DEFAULT 1,
+  max_guests INT NOT NULL,
+  price_type TEXT NOT NULL CHECK (price_type IN ('per_night', 'per_person_per_night', 'package')),
+  price DECIMAL(10,2) NOT NULL,
+  min_stay_days INT,            -- for stay-length discounts (e.g. camping réveillon 3+ days)
+  label TEXT,                   -- display label (e.g. "Casal", "Pacote Réveillon")
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- 4. RESERVATIONS
 CREATE TABLE reservations (
   id SERIAL PRIMARY KEY,
   accommodation_id INT NOT NULL REFERENCES accommodations(id),
@@ -55,7 +70,7 @@ CREATE TABLE reservations (
 );
 
 
--- 4. PAYMENTS
+-- 5. PAYMENTS
 CREATE TABLE payments (
   id SERIAL PRIMARY KEY,
   reservation_id INT NOT NULL REFERENCES reservations(id),
@@ -68,7 +83,7 @@ CREATE TABLE payments (
 );
 
 
--- 5. BLOCKED DATES (optional but useful)
+-- 6. BLOCKED DATES
 -- Admin can manually block dates for any accommodation
 CREATE TABLE blocked_dates (
   id SERIAL PRIMARY KEY,
