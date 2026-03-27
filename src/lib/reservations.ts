@@ -5,6 +5,8 @@ export type ReservationInput = {
   guest_name: string
   guest_email: string
   guest_phone: string
+  cpf: string
+  rg: string
   num_people: number
   check_in: string
   check_out: string
@@ -28,6 +30,8 @@ export async function createReservation(
       guest_name: input.guest_name,
       guest_email: input.guest_email,
       guest_phone: input.guest_phone,
+      cpf: input.cpf,
+      rg: input.rg,
       num_people: input.num_people,
       check_in: input.check_in,
       check_out: input.check_out,

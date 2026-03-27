@@ -60,6 +60,8 @@ CREATE TABLE reservations (
   guest_name TEXT NOT NULL,
   guest_email TEXT NOT NULL,
   guest_phone TEXT NOT NULL,
+  cpf TEXT NOT NULL,               -- Brazilian tax ID (validated)
+  rg TEXT NOT NULL,                -- Brazilian identity card number
   num_people INT NOT NULL,
   check_in DATE NOT NULL,
   check_out DATE NOT NULL,
