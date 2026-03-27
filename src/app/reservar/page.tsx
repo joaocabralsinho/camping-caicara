@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getPrices, PriceResult } from '@/lib/pricing'
-import { createReservation, Reservation } from '@/lib/reservations'
+import { createReservation, Reservation, GuestInfo } from '@/lib/reservations'
 import { validateCPF, formatCPF } from '@/lib/cpf'
 
 type Accommodation = {
@@ -35,13 +35,23 @@ function ReservarForm() {
   const [error, setError] = useState('')
   const [confirmation, setConfirmation] = useState<Reservation | null>(null)
 
-  // Form fields
-  const [name, setName] = useState('')
+  // Form fields — contact (one set)
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
-  const [cpf, setCpf] = useState('')
-  const [rg, setRg] = useState('')
   const [notes, setNotes] = useState('')
+
+  // Guest info — one per person
+  const [guests, setGuests] = useState<GuestInfo[]>(
+    Array.from({ length: numGuests }, () => ({ name: '', cpf: '', rg: '' }))
+  )
+
+  function updateGuest(index: number, field: keyof GuestInfo, value: string) {
+    setGuests((prev) => {
+      const updated = [...prev]
+      updated[index] = { ...updated[index], [field]: value }
+      return updated
+    })
+  }
 
   // Load accommodation and recalculate price
   useEffect(() => {
@@ -77,14 +87,23 @@ function ReservarForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!name.trim() || !email.trim() || !phone.trim() || !cpf.trim() || !rg.trim()) {
-      setError('Preencha todos os campos obrigatórios')
+    // Validate contact info
+    if (!email.trim() || !phone.trim()) {
+      setError('Preencha o e-mail e WhatsApp')
       return
     }
 
-    if (!validateCPF(cpf)) {
-      setError('CPF inválido. Verifique o número digitado.')
-      return
+    // Validate all guests
+    for (let i = 0; i < guests.length; i++) {
+      const g = guests[i]
+      if (!g.name.trim() || !g.cpf.trim() || !g.rg.trim()) {
+        setError(`Preencha todos os dados do Hóspede ${i + 1}`)
+        return
+      }
+      if (!validateCPF(g.cpf)) {
+        setError(`CPF inválido para o Hóspede ${i + 1}. Verifique o número.`)
+        return
+      }
     }
 
     if (!price || !accommodation) return
@@ -93,13 +112,19 @@ function ReservarForm() {
     setError('')
 
     try {
+      // Clean CPFs (remove formatting) before saving
+      const cleanGuests = guests.map((g) => ({
+        name: g.name.trim(),
+        cpf: g.cpf.replace(/\D/g, ''),
+        rg: g.rg.trim(),
+      }))
+
       const reservation = await createReservation({
         accommodation_id: accId,
-        guest_name: name.trim(),
+        guest_name: cleanGuests[0].name,
         guest_email: email.trim(),
         guest_phone: phone.trim(),
-        cpf: cpf.replace(/\D/g, ''),
-        rg: rg.trim(),
+        guests: cleanGuests,
         num_people: numGuests,
         check_in: checkIn,
         check_out: checkOut,
@@ -115,7 +140,6 @@ function ReservarForm() {
     }
   }
 
-  // Format dates for display
   function formatDate(dateStr: string): string {
     const [y, m, d] = dateStr.split('-')
     return `${d}/${m}/${y}`
@@ -173,7 +197,7 @@ function ReservarForm() {
                 <span className="text-sm font-medium text-gray-800">{numGuests}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Hóspede</span>
+                <span className="text-sm text-gray-500">Contato</span>
                 <span className="text-sm font-medium text-gray-800">{confirmation.guest_name}</span>
               </div>
               <div className="flex justify-between border-t pt-2 mt-2">
@@ -252,82 +276,99 @@ function ReservarForm() {
           </div>
         </div>
 
-        {/* Guest info form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Seus dados</h2>
+        {/* Contact info */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Contato</h2>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Nome completo *
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="João da Silva"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  E-mail *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="joao@email.com"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">
+                  WhatsApp / Telefone *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(21) 99999-9999"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
+                />
+              </div>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                E-mail *
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="joao@email.com"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
-              />
+          {/* Guest info — one block per person */}
+          {guests.map((guest, i) => (
+            <div key={i} className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                Hóspede {i + 1}
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    Nome completo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={guest.name}
+                    onChange={(e) => updateGuest(i, 'name', e.target.value)}
+                    placeholder="Nome completo"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    CPF *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={guest.cpf}
+                    onChange={(e) => updateGuest(i, 'cpf', formatCPF(e.target.value))}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                    RG *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={guest.rg}
+                    onChange={(e) => updateGuest(i, 'rg', e.target.value)}
+                    placeholder="00.000.000-0"
+                    maxLength={14}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
+                  />
+                </div>
+              </div>
             </div>
+          ))}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                CPF *
-              </label>
-              <input
-                type="text"
-                required
-                value={cpf}
-                onChange={(e) => setCpf(formatCPF(e.target.value))}
-                placeholder="000.000.000-00"
-                maxLength={14}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                RG *
-              </label>
-              <input
-                type="text"
-                required
-                value={rg}
-                onChange={(e) => setRg(e.target.value)}
-                placeholder="00.000.000-0"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                WhatsApp / Telefone *
-              </label>
-              <input
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(21) 99999-9999"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
-              />
-            </div>
-
+          {/* Notes + submit */}
+          <div className="bg-white rounded-lg shadow-md p-6">
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 Observações
@@ -340,27 +381,27 @@ function ReservarForm() {
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400 resize-none"
               />
             </div>
-          </div>
 
-          {error && (
-            <p className="mt-3 text-red-600 text-sm">{error}</p>
-          )}
+            {error && (
+              <p className="mt-3 text-red-600 text-sm">{error}</p>
+            )}
 
-          <div className="mt-6 flex gap-3">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors"
-            >
-              Voltar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !price}
-              className="flex-1 bg-green-700 text-white px-4 py-2 rounded-md hover:bg-green-800 disabled:bg-gray-400 transition-colors"
-            >
-              {submitting ? 'Enviando...' : 'Confirmar reserva'}
-            </button>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || !price}
+                className="flex-1 bg-green-700 text-white px-4 py-2 rounded-md hover:bg-green-800 disabled:bg-gray-400 transition-colors"
+              >
+                {submitting ? 'Enviando...' : 'Confirmar reserva'}
+              </button>
+            </div>
           </div>
         </form>
       </main>
