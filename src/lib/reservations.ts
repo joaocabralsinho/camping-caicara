@@ -1,12 +1,17 @@
 import { supabase } from './supabase'
 
+export type GuestInfo = {
+  name: string
+  cpf: string
+  rg: string
+}
+
 export type ReservationInput = {
   accommodation_id: number
   guest_name: string
   guest_email: string
   guest_phone: string
-  cpf: string
-  rg: string
+  guests: GuestInfo[]
   num_people: number
   check_in: string
   check_out: string
@@ -30,8 +35,7 @@ export async function createReservation(
       guest_name: input.guest_name,
       guest_email: input.guest_email,
       guest_phone: input.guest_phone,
-      cpf: input.cpf,
-      rg: input.rg,
+      guests: input.guests,
       num_people: input.num_people,
       check_in: input.check_in,
       check_out: input.check_out,
