@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getPrices, PriceResult } from '@/lib/pricing'
 import { createReservation, Reservation } from '@/lib/reservations'
+import { validateCPF, formatCPF } from '@/lib/cpf'
 
 type Accommodation = {
   id: number
@@ -38,6 +39,8 @@ function ReservarForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [cpf, setCpf] = useState('')
+  const [rg, setRg] = useState('')
   const [notes, setNotes] = useState('')
 
   // Load accommodation and recalculate price
@@ -74,8 +77,13 @@ function ReservarForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!name.trim() || !email.trim() || !phone.trim()) {
+    if (!name.trim() || !email.trim() || !phone.trim() || !cpf.trim() || !rg.trim()) {
       setError('Preencha todos os campos obrigatórios')
+      return
+    }
+
+    if (!validateCPF(cpf)) {
+      setError('CPF inválido. Verifique o número digitado.')
       return
     }
 
@@ -90,6 +98,8 @@ function ReservarForm() {
         guest_name: name.trim(),
         guest_email: email.trim(),
         guest_phone: phone.trim(),
+        cpf: cpf.replace(/\D/g, ''),
+        rg: rg.trim(),
         num_people: numGuests,
         check_in: checkIn,
         check_out: checkOut,
@@ -271,6 +281,35 @@ function ReservarForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="joao@email.com"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                CPF *
+              </label>
+              <input
+                type="text"
+                required
+                value={cpf}
+                onChange={(e) => setCpf(formatCPF(e.target.value))}
+                placeholder="000.000.000-00"
+                maxLength={14}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                RG *
+              </label>
+              <input
+                type="text"
+                required
+                value={rg}
+                onChange={(e) => setRg(e.target.value)}
+                placeholder="00.000.000-0"
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-gray-800 placeholder-gray-400"
               />
             </div>
