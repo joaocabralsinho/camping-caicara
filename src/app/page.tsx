@@ -15,6 +15,10 @@ function priceLabel(p: PriceResult, numGuests: number): string {
       return `${formatBRL(p.totalPrice)} (pacote)`
     case 'per_person_per_night':
       return `${formatBRL(p.unitPrice)}/pessoa/noite · ${numGuests} pessoa${numGuests > 1 ? 's' : ''} · ${p.nights} noite${p.nights > 1 ? 's' : ''} = ${formatBRL(p.totalPrice)}`
+    case 'per_person_per_day': {
+      const days = p.nights + 1
+      return `${formatBRL(p.unitPrice)}/pessoa/dia · ${numGuests} pessoa${numGuests > 1 ? 's' : ''} · ${days} dia${days > 1 ? 's' : ''} = ${formatBRL(p.totalPrice)}`
+    }
     case 'per_night':
       return `${formatBRL(p.unitPrice)}/noite · ${p.nights} noite${p.nights > 1 ? 's' : ''} = ${formatBRL(p.totalPrice)}`
     default:
