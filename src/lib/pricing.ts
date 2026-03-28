@@ -8,7 +8,7 @@ type PricingRule = {
   season_id: number | null
   min_guests: number
   max_guests: number
-  price_type: 'per_night' | 'per_person_per_night' | 'package'
+  price_type: 'per_night' | 'per_person_per_night' | 'per_person_per_day' | 'package'
   price: number
   min_stay_days: number | null
   label: string | null
@@ -24,7 +24,7 @@ type Season = {
 export type PriceResult = {
   totalPrice: number
   unitPrice: number // base price from the rule
-  priceType: 'per_night' | 'per_person_per_night' | 'package'
+  priceType: 'per_night' | 'per_person_per_night' | 'per_person_per_day' | 'package'
   label: string
   seasonName: string | null
   nights: number
@@ -44,8 +44,13 @@ function pickBestRule(
 ): PricingRule {
   // Pick the rule with the highest min_stay_days that the stay qualifies for
   // This handles the camping réveillon case: 3+ days → R$80, otherwise → R$100
+  // For per_person_per_day rules, compare against days (nights + 1)
   const applicable = rules
-    .filter((r) => !r.min_stay_days || nights >= r.min_stay_days)
+    .filter((r) => {
+      if (!r.min_stay_days) return true
+      const stayLength = r.price_type === 'per_person_per_day' ? nights + 1 : nights
+      return stayLength >= r.min_stay_days
+    })
     .sort((a, b) => (b.min_stay_days || 0) - (a.min_stay_days || 0))
 
   return applicable[0] || rules[0]
@@ -65,6 +70,9 @@ function calcFromRule(
       break
     case 'per_person_per_night':
       totalPrice = Number(rule.price) * numGuests * nights
+      break
+    case 'per_person_per_day':
+      totalPrice = Number(rule.price) * numGuests * (nights + 1)
       break
     case 'package':
       totalPrice = Number(rule.price)

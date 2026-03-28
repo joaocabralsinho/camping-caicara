@@ -15,6 +15,12 @@ type Accommodation = {
   description: string
 }
 
+type PixPayment = {
+  payment_id: number
+  qr_code: string         // PIX copia e cola
+  qr_code_base64: string  // QR code image
+}
+
 function formatBRL(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -34,6 +40,8 @@ function ReservarForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [confirmation, setConfirmation] = useState<Reservation | null>(null)
+  const [pixPayment, setPixPayment] = useState<PixPayment | null>(null)
+  const [pixCopied, setPixCopied] = useState(false)
 
   // Form fields — contact (one set)
   const [email, setEmail] = useState('')
@@ -112,7 +120,7 @@ function ReservarForm() {
     setError('')
 
     try {
-      // Clean CPFs (remove formatting) before saving
+      // 1. Create reservation
       const cleanGuests = guests.map((g) => ({
         name: g.name.trim(),
         cpf: g.cpf.replace(/\D/g, ''),
@@ -132,6 +140,36 @@ function ReservarForm() {
         notes: notes.trim() || undefined,
       })
 
+      // 2. Create payment record in Supabase
+      await supabase.from('payments').insert({
+        reservation_id: reservation.id,
+        amount: price.totalPrice,
+        payment_type: 'full',
+        status: 'pending',
+      })
+
+      // 3. Generate PIX payment via Mercado Pago
+      const pixResponse = await fetch('/api/payments/pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reservation_id: reservation.id,
+          amount: price.totalPrice,
+          description: `Reserva Camping Caiçara - ${accommodation.name}`,
+          payer_email: email.trim(),
+        }),
+      })
+
+      const pixData = await pixResponse.json()
+
+      if (pixData.qr_code) {
+        setPixPayment({
+          payment_id: pixData.payment_id,
+          qr_code: pixData.qr_code,
+          qr_code_base64: pixData.qr_code_base64,
+        })
+      }
+
       setConfirmation(reservation)
     } catch {
       setError('Erro ao criar reserva. Tente novamente.')
@@ -145,6 +183,13 @@ function ReservarForm() {
     return `${d}/${m}/${y}`
   }
 
+  async function copyPixCode() {
+    if (!pixPayment?.qr_code) return
+    await navigator.clipboard.writeText(pixPayment.qr_code)
+    setPixCopied(true)
+    setTimeout(() => setPixCopied(false), 3000)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-green-50 flex items-center justify-center">
@@ -153,7 +198,7 @@ function ReservarForm() {
     )
   }
 
-  // ---- Confirmation screen ----
+  // ---- Confirmation + PIX payment screen ----
   if (confirmation) {
     return (
       <div className="min-h-screen bg-green-50">
@@ -162,7 +207,8 @@ function ReservarForm() {
           <p className="mt-2 text-green-200">Praia do Sono</p>
         </header>
 
-        <main className="max-w-lg mx-auto px-4 py-8">
+        <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
+          {/* Reservation confirmed */}
           <div className="bg-white rounded-lg shadow-md p-6 text-center">
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,9 +216,9 @@ function ReservarForm() {
               </svg>
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Reserva enviada!</h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Reserva registrada!</h2>
             <p className="text-gray-500 mb-6">
-              Sua reserva foi registrada e está aguardando confirmação.
+              Agora é só fazer o pagamento via PIX para confirmar.
             </p>
 
             <div className="text-left bg-gray-50 rounded-lg p-4 space-y-2">
@@ -196,23 +242,72 @@ function ReservarForm() {
                 <span className="text-sm text-gray-500">Pessoas</span>
                 <span className="text-sm font-medium text-gray-800">{numGuests}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Contato</span>
-                <span className="text-sm font-medium text-gray-800">{confirmation.guest_name}</span>
-              </div>
               <div className="flex justify-between border-t pt-2 mt-2">
                 <span className="text-sm font-semibold text-gray-700">Total</span>
                 <span className="text-sm font-bold text-green-700">{formatBRL(confirmation.total_price)}</span>
               </div>
             </div>
+          </div>
 
-            <p className="text-sm text-gray-500 mt-4">
-              Entraremos em contato pelo WhatsApp ou e-mail para confirmar sua reserva e informar os dados de pagamento.
-            </p>
+          {/* PIX payment */}
+          {pixPayment ? (
+            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Pagamento via PIX</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Escaneie o QR Code ou copie o código abaixo
+              </p>
 
+              {/* QR Code */}
+              {pixPayment.qr_code_base64 && (
+                <div className="flex justify-center mb-4">
+                  <img
+                    src={`data:image/png;base64,${pixPayment.qr_code_base64}`}
+                    alt="QR Code PIX"
+                    className="w-56 h-56"
+                  />
+                </div>
+              )}
+
+              {/* Copia e cola */}
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <p className="text-xs text-gray-500 mb-2">PIX Copia e Cola</p>
+                <p className="text-xs text-gray-700 break-all font-mono leading-relaxed">
+                  {pixPayment.qr_code}
+                </p>
+              </div>
+
+              <button
+                onClick={copyPixCode}
+                className="w-full bg-green-700 text-white py-2 rounded-md hover:bg-green-800 transition-colors text-sm font-medium"
+              >
+                {pixCopied ? 'Copiado!' : 'Copiar código PIX'}
+              </button>
+
+              <p className="text-xs text-gray-400 mt-3">
+                Após o pagamento, sua reserva será confirmada automaticamente.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-6 text-center">
+              <p className="text-sm text-gray-500">
+                Não foi possível gerar o PIX. Entre em contato pelo{' '}
+                <a
+                  href="https://wa.me/5521996628900"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-700 underline"
+                >
+                  WhatsApp
+                </a>{' '}
+                para finalizar o pagamento.
+              </p>
+            </div>
+          )}
+
+          <div className="text-center">
             <button
               onClick={() => router.push('/')}
-              className="mt-6 bg-green-700 text-white px-6 py-2 rounded-md hover:bg-green-800 transition-colors"
+              className="text-sm text-green-700 underline hover:text-green-900"
             >
               Voltar ao início
             </button>
@@ -399,7 +494,7 @@ function ReservarForm() {
                 disabled={submitting || !price}
                 className="flex-1 bg-green-700 text-white px-4 py-2 rounded-md hover:bg-green-800 disabled:bg-gray-400 transition-colors"
               >
-                {submitting ? 'Enviando...' : 'Confirmar reserva'}
+                {submitting ? 'Gerando pagamento...' : 'Reservar e pagar'}
               </button>
             </div>
           </div>
