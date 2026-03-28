@@ -19,6 +19,9 @@ type PixPayment = {
   payment_id: number
   qr_code: string         // PIX copia e cola
   qr_code_base64: string  // QR code image
+  amount: number           // how much this PIX is for
+  payment_type: 'full' | 'partial'
+  total_price: number      // original total before discount
 }
 
 function formatBRL(value: number): string {
@@ -47,6 +50,7 @@ function ReservarForm() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [notes, setNotes] = useState('')
+  const [paymentType, setPaymentType] = useState<'full' | 'partial'>('partial')
 
   // Guest info — one per person
   const [guests, setGuests] = useState<GuestInfo[]>(
@@ -140,21 +144,26 @@ function ReservarForm() {
         notes: notes.trim() || undefined,
       })
 
-      // 2. Create payment record in Supabase
+      // 2. Calculate PIX amount based on payment type
+      const pixAmount = paymentType === 'full'
+        ? Math.round(price.totalPrice * 0.95 * 100) / 100  // 5% discount
+        : Math.round(price.totalPrice * 0.50 * 100) / 100  // 50% deposit
+
+      // 3. Create payment record in Supabase
       await supabase.from('payments').insert({
         reservation_id: reservation.id,
-        amount: price.totalPrice,
-        payment_type: 'full',
+        amount: pixAmount,
+        payment_type: paymentType,
         status: 'pending',
       })
 
-      // 3. Generate PIX payment via Mercado Pago
+      // 4. Generate PIX payment via Mercado Pago
       const pixResponse = await fetch('/api/payments/pix', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reservation_id: reservation.id,
-          amount: price.totalPrice,
+          amount: pixAmount,
           description: `Reserva Camping Caiçara - ${accommodation.name}`,
           payer_email: email.trim(),
         }),
@@ -167,6 +176,9 @@ function ReservarForm() {
           payment_id: pixData.payment_id,
           qr_code: pixData.qr_code,
           qr_code_base64: pixData.qr_code_base64,
+          amount: pixAmount,
+          payment_type: paymentType,
+          total_price: price.totalPrice,
         })
       }
 
@@ -243,16 +255,45 @@ function ReservarForm() {
                 <span className="text-sm font-medium text-gray-800">{numGuests}</span>
               </div>
               <div className="flex justify-between border-t pt-2 mt-2">
-                <span className="text-sm font-semibold text-gray-700">Total</span>
-                <span className="text-sm font-bold text-green-700">{formatBRL(confirmation.total_price)}</span>
+                <span className="text-sm font-semibold text-gray-700">Total da estadia</span>
+                <span className="text-sm font-bold text-gray-800">{formatBRL(confirmation.total_price)}</span>
               </div>
+
+              {pixPayment && (
+                <>
+                  {pixPayment.payment_type === 'full' ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-500">Desconto 5% (pagamento integral)</span>
+                        <span className="text-sm text-green-600">-{formatBRL(pixPayment.total_price * 0.05)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm font-semibold text-green-700">Pagar agora via PIX</span>
+                        <span className="text-sm font-bold text-green-700">{formatBRL(pixPayment.amount)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-sm font-semibold text-green-700">Pagar agora (50%)</span>
+                        <span className="text-sm font-bold text-green-700">{formatBRL(pixPayment.amount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-500">Restante na chegada</span>
+                        <span className="text-sm text-gray-600">{formatBRL(confirmation.total_price - pixPayment.amount)}</span>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
           {/* PIX payment */}
           {pixPayment ? (
             <div className="bg-white rounded-lg shadow-md p-6 text-center">
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Pagamento via PIX</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-1">Pagamento via PIX</h3>
+              <p className="text-2xl font-bold text-green-700 mb-1">{formatBRL(pixPayment.amount)}</p>
               <p className="text-sm text-gray-500 mb-4">
                 Escaneie o QR Code ou copie o código abaixo
               </p>
@@ -461,6 +502,70 @@ function ReservarForm() {
               </div>
             </div>
           ))}
+
+          {/* Payment option */}
+          {price && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Forma de pagamento</h2>
+
+              <div className="space-y-3">
+                <label
+                  className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    paymentType === 'partial'
+                      ? 'border-green-600 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="partial"
+                      checked={paymentType === 'partial'}
+                      onChange={() => setPaymentType('partial')}
+                      className="accent-green-700"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Pagar 50% agora</p>
+                      <p className="text-xs text-gray-500">Restante na chegada</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800">
+                    {formatBRL(Math.round(price.totalPrice * 0.50 * 100) / 100)}
+                  </span>
+                </label>
+
+                <label
+                  className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    paymentType === 'full'
+                      ? 'border-green-600 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="full"
+                      checked={paymentType === 'full'}
+                      onChange={() => setPaymentType('full')}
+                      className="accent-green-700"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        Pagar 100%
+                        <span className="ml-1 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full">5% OFF</span>
+                      </p>
+                      <p className="text-xs text-gray-500">Pagamento integral com desconto</p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-gray-800">
+                    {formatBRL(Math.round(price.totalPrice * 0.95 * 100) / 100)}
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
 
           {/* Notes + submit */}
           <div className="bg-white rounded-lg shadow-md p-6">
