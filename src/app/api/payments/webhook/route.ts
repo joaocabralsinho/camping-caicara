@@ -1,5 +1,6 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago'
 import { createClient } from '@supabase/supabase-js'
+import { sendConfirmationEmail } from '@/lib/email'
 
 const mpClient = new MercadoPagoConfig({
   accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
@@ -51,6 +52,29 @@ export async function POST(request: Request) {
         .from('reservations')
         .update({ status: 'confirmed' })
         .eq('id', Number(reservationId))
+
+      // Send confirmation email
+      const { data: reservation } = await supabase
+        .from('reservations')
+        .select('*, accommodations(name), payments(*)')
+        .eq('id', Number(reservationId))
+        .single()
+
+      if (reservation) {
+        const pmt = reservation.payments?.[0]
+        await sendConfirmationEmail({
+          guestName: reservation.guest_name,
+          guestEmail: reservation.guest_email,
+          reservationId: reservation.id,
+          accommodationName: reservation.accommodations?.name || '',
+          checkIn: reservation.check_in,
+          checkOut: reservation.check_out,
+          numPeople: reservation.num_people,
+          totalPrice: Number(reservation.total_price),
+          amountPaid: pmt ? Number(pmt.amount) : 0,
+          paymentType: pmt?.payment_type === 'full' ? 'full' : 'partial',
+        }).catch((err) => console.error('Email error:', err))
+      }
     } else if (status === 'rejected') {
       await supabase
         .from('payments')
