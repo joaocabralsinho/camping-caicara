@@ -62,11 +62,15 @@ export async function POST(request: Request) {
 
       if (reservation) {
         const pmt = reservation.payments?.[0]
+        const accommodationName = reservation.accommodations?.name || ''
+
+        // Send confirmation email with contract attached
         await sendConfirmationEmail({
           guestName: reservation.guest_name,
           guestEmail: reservation.guest_email,
+          guestPhone: reservation.guest_phone || '',
           reservationId: reservation.id,
-          accommodationName: reservation.accommodations?.name || '',
+          accommodationName,
           checkIn: reservation.check_in,
           checkOut: reservation.check_out,
           numPeople: reservation.num_people,
@@ -74,6 +78,7 @@ export async function POST(request: Request) {
           amountPaid: pmt ? Number(pmt.amount) : 0,
           paymentType: pmt?.payment_type === 'full' ? 'full' : 'partial',
         }).catch((err) => console.error('Email error:', err))
+
       }
     } else if (status === 'rejected') {
       await supabase

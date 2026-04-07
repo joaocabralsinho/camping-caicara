@@ -31,6 +31,43 @@ function formatDate(dateStr: string): string {
   return `${d}/${m}/${y}`
 }
 
+function getContractFile(accommodationName: string): { file: string; label: string } | null {
+  const name = accommodationName.toLowerCase()
+  if (name.includes('cabana') || name.includes('bangal')) {
+    return { file: 'bangalos.docx', label: 'Contrato Bangalô' }
+  }
+  if (name.includes('chalé') || name.includes('chale') || name.includes('suíte') || name.includes('suite')) {
+    return { file: 'chale.docx', label: 'Contrato Chalé/Suíte' }
+  }
+  if (name.includes('camping')) {
+    return { file: 'camping.pdf', label: 'Contrato Camping' }
+  }
+  return null
+}
+
+function buildWhatsAppContractUrl(r: Reservation): string {
+  const contract = getContractFile(r.accommodations?.name || '')
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  const contractUrl = contract ? `${siteUrl}/contracts/${contract.file}` : ''
+
+  const message = [
+    `Olá ${r.guest_name}! Aqui é o Camping Caiçara.`,
+    ``,
+    `Sua reserva #${r.id} foi confirmada!`,
+    `Acomodação: ${r.accommodations?.name}`,
+    `Check-in: ${formatDate(r.check_in)}`,
+    `Check-out: ${formatDate(r.check_out)}`,
+    ``,
+    contract ? `Segue o contrato da sua hospedagem:\n${contractUrl}` : '',
+    ``,
+    `Por favor, leia o contrato com atenção. Qualquer dúvida estamos à disposição!`,
+  ].filter(Boolean).join('\n')
+
+  const phone = r.guest_phone.replace(/\D/g, '')
+  const fullPhone = phone.startsWith('55') ? phone : `55${phone}`
+  return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`
+}
+
 function statusBadge(status: string) {
   const styles: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -242,6 +279,42 @@ export default function ReservasAdmin() {
                     <p className="text-xs text-gray-400">
                       Criada em {new Date(r.created_at).toLocaleString('pt-BR')}
                     </p>
+
+                    {/* Send contract via WhatsApp */}
+                    {(r.status === 'confirmed' || r.status === 'completed') && r.guest_phone && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <h4 className="text-sm font-semibold text-green-800 mb-2">Enviar contrato</h4>
+                        <div className="flex gap-2 flex-wrap">
+                          <a
+                            href={buildWhatsAppContractUrl(r)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.611.611l4.458-1.495A11.952 11.952 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.826-6.326-2.208l-.442-.362-2.95.989.989-2.95-.362-.442A9.935 9.935 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+                            </svg>
+                            Enviar via WhatsApp
+                          </a>
+                          {getContractFile(r.accommodations?.name || '') && (
+                            <a
+                              href={`/contracts/${getContractFile(r.accommodations?.name || '')!.file}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              {getContractFile(r.accommodations?.name || '')!.label}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Actions */}
                     <div className="flex gap-2 pt-2">

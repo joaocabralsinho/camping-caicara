@@ -40,10 +40,10 @@ function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
   }
 
   return (
-    <div className="relative group">
+    <div className="relative group" onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => scroll('left')}
-        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-stone-800 w-10 h-10 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-stone-800 w-10 h-10 rounded-full flex items-center justify-center shadow-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -64,7 +64,7 @@ function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
 
       <button
         onClick={() => scroll('right')}
-        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-stone-800 w-10 h-10 rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-stone-800 w-10 h-10 rounded-full flex items-center justify-center shadow-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -477,40 +477,39 @@ export default function Home() {
                 {accommodationShowcase.map((acc, index) => (
                   <div
                     key={acc.title}
-                    className="bg-white rounded-2xl border border-stone-100 overflow-hidden hover:shadow-md transition-all"
+                    className="bg-white rounded-2xl border border-stone-100 overflow-hidden hover:shadow-md transition-shadow"
                   >
-                    <div
-                      className="cursor-pointer"
-                      onClick={() => setExpandedAcc(expandedAcc === index ? null : index)}
-                    >
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="sm:w-80 h-60 sm:h-auto shrink-0 overflow-hidden">
-                          <img
-                            src={acc.cover}
-                            alt={acc.title}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                          />
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="sm:w-80 h-60 sm:h-auto shrink-0 overflow-hidden">
+                        <img
+                          src={acc.cover}
+                          alt={acc.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 p-8 flex flex-col justify-center">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-xl font-semibold text-stone-800">{acc.title}</h3>
+                          <span className="text-xs text-stone-400 bg-stone-100 px-2.5 py-1 rounded-full">
+                            {acc.capacity === 500 ? 'Área aberta' : `Até ${acc.capacity} pessoas`}
+                          </span>
                         </div>
-                        <div className="flex-1 p-8 flex flex-col justify-center">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-xl font-semibold text-stone-800">{acc.title}</h3>
-                            <span className="text-xs text-stone-400 bg-stone-100 px-2.5 py-1 rounded-full">
-                              {acc.capacity === 500 ? 'Área aberta' : `Até ${acc.capacity} pessoas`}
-                            </span>
-                          </div>
-                          <p className="text-stone-500 mt-2 leading-relaxed">{acc.desc}</p>
-                          <p className="text-sm text-stone-900 font-medium mt-5 flex items-center gap-1.5">
-                            {expandedAcc === index ? 'Fechar fotos' : `Ver ${acc.photos.length} fotos`}
-                            <svg
-                              className={`w-4 h-4 transition-transform ${expandedAcc === index ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </p>
-                        </div>
+                        <p className="text-stone-500 mt-2 leading-relaxed">{acc.desc}</p>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedAcc(expandedAcc === index ? null : index)}
+                          className="text-sm text-stone-900 font-medium mt-5 flex items-center gap-1.5 hover:text-green-700 transition-colors cursor-pointer"
+                        >
+                          {expandedAcc === index ? 'Fechar fotos' : `Ver ${acc.photos.length} fotos`}
+                          <svg
+                            className={`w-4 h-4 transition-transform ${expandedAcc === index ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
 

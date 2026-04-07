@@ -1,10 +1,13 @@
 import { Resend } from 'resend'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 type ReservationEmail = {
   guestName: string
   guestEmail: string
+  guestPhone: string
   reservationId: number
   accommodationName: string
   checkIn: string
@@ -24,10 +27,61 @@ function formatDate(dateStr: string): string {
   return `${d}/${m}/${y}`
 }
 
+function getContractInfo(accommodationName: string): { filename: string; file: string; label: string } | null {
+  const name = accommodationName.toLowerCase()
+  if (name.includes('cabana') || name.includes('bangal')) {
+    return { filename: 'Contrato_Bangalo_CampingCaicara.docx', file: 'bangalos.docx', label: 'Contrato — Bangalô' }
+  }
+  if (name.includes('chalé') || name.includes('chale') || name.includes('suíte') || name.includes('suite')) {
+    return { filename: 'Contrato_Chale_CampingCaicara.docx', file: 'chale.docx', label: 'Contrato — Chalé / Suíte' }
+  }
+  if (name.includes('camping')) {
+    return { filename: 'Contrato_Camping_CampingCaicara.pdf', file: 'camping.pdf', label: 'Contrato — Área de Camping' }
+  }
+  return null
+}
+
+export function buildWhatsAppContractLink(data: {
+  guestPhone: string
+  guestName: string
+  reservationId: number
+  accommodationName: string
+  checkIn: string
+  checkOut: string
+  siteUrl: string
+}): string {
+  const contract = getContractInfo(data.accommodationName)
+  const contractUrl = contract ? `${data.siteUrl}/contracts/${contract.file}` : ''
+
+  const message = [
+    `Olá ${data.guestName}! Aqui é o Camping Caiçara.`,
+    ``,
+    `Sua reserva #${data.reservationId} foi confirmada!`,
+    `Acomodação: ${data.accommodationName}`,
+    `Check-in: ${formatDate(data.checkIn)}`,
+    `Check-out: ${formatDate(data.checkOut)}`,
+    ``,
+    contract ? `Segue o contrato da sua hospedagem:\n${contractUrl}` : '',
+    ``,
+    `Por favor, leia o contrato com atenção. Qualquer dúvida estamos à disposição!`,
+  ].filter(Boolean).join('\n')
+
+  // Clean phone number to digits only
+  const phone = data.guestPhone.replace(/\D/g, '')
+  // Add Brazil country code if not present
+  const fullPhone = phone.startsWith('55') ? phone : `55${phone}`
+
+  return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`
+}
+
 export async function sendConfirmationEmail(data: ReservationEmail) {
   const remaining = data.paymentType === 'partial'
     ? data.totalPrice - data.amountPaid
     : 0
+
+  const contract = getContractInfo(data.accommodationName)
+  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://campingcaicara.com'
+  const contractDownloadUrl = contract ? `${siteUrl}/contracts/${contract.file}` : ''
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
@@ -88,9 +142,21 @@ export async function sendConfirmationEmail(data: ReservationEmail) {
         </div>
         ` : ''}
 
-        <p style="font-size: 14px; color: #666;">
-          Em breve você receberá o contrato, regras e termos de uso do camping.
-        </p>
+        ${contract ? `
+        <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+          <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #1e40af;">
+            Contrato em anexo
+          </p>
+          <p style="margin: 0; font-size: 13px; color: #3b82f6;">
+            O contrato da sua hospedagem segue em anexo neste e-mail. Por favor, leia com atenção as regras e termos de uso.
+          </p>
+          ${contractDownloadUrl ? `
+          <p style="margin: 8px 0 0 0; font-size: 13px;">
+            <a href="${contractDownloadUrl}" style="color: #1e40af; text-decoration: underline;">Baixar contrato</a>
+          </p>
+          ` : ''}
+        </div>
+        ` : ''}
 
         <p style="font-size: 14px; color: #666;">
           Precisando de ajuda? Entre em contato pelo WhatsApp informando seu código <strong>#${data.reservationId}</strong>:
@@ -109,11 +175,24 @@ export async function sendConfirmationEmail(data: ReservationEmail) {
     </div>
   `
 
+  // Build attachments from contract file
+  const attachments: { filename: string; content: Buffer }[] = []
+  if (contract) {
+    try {
+      const filePath = join(process.cwd(), 'public', 'contracts', contract.file)
+      const content = readFileSync(filePath)
+      attachments.push({ filename: contract.filename, content })
+    } catch (err) {
+      console.error('Failed to read contract file:', err)
+    }
+  }
+
   await resend.emails.send({
     from: 'Camping Caiçara <onboarding@resend.dev>',
     replyTo: 'campingcaicaraoficial@gmail.com',
     to: data.guestEmail,
     subject: `Reserva #${data.reservationId} confirmada — Camping Caiçara`,
     html,
+    attachments,
   })
 }
