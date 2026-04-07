@@ -148,6 +148,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [expandedAcc, setExpandedAcc] = useState<number | null>(null)
+  const [expandedResult, setExpandedResult] = useState<number | null>(null)
   const router = useRouter()
 
   const today = new Date().toISOString().split('T')[0]
@@ -381,13 +382,20 @@ export default function Home() {
                     } bg-white border border-stone-200`}
                   >
                     {showcase && (
-                      <div className="h-52 overflow-hidden">
-                        <img
-                          src={showcase.cover}
-                          alt={acc.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                        />
-                      </div>
+                      <>
+                        <div className="h-52 overflow-hidden">
+                          <img
+                            src={showcase.cover}
+                            alt={acc.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        {expandedResult === acc.id && (
+                          <div className="border-t border-stone-100 p-3 bg-stone-50">
+                            <PhotoGallery photos={showcase.photos} alt={acc.name} />
+                          </div>
+                        )}
+                      </>
                     )}
 
                     <div className="p-6">
@@ -395,9 +403,28 @@ export default function Home() {
                         <div>
                           <h3 className="font-semibold text-stone-800 text-lg">{acc.name}</h3>
                           <p className="text-sm text-stone-500 mt-1">{acc.description}</p>
-                          <p className="text-xs text-stone-400 mt-1">
-                            Até {acc.max_capacity} {acc.max_capacity === 1 ? 'pessoa' : 'pessoas'}
-                          </p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <p className="text-xs text-stone-400">
+                              Até {acc.max_capacity} {acc.max_capacity === 1 ? 'pessoa' : 'pessoas'}
+                            </p>
+                            {showcase && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedResult(expandedResult === acc.id ? null : acc.id)}
+                                className="text-xs text-stone-900 font-medium flex items-center gap-1 hover:text-green-700 transition-colors cursor-pointer"
+                              >
+                                {expandedResult === acc.id ? 'Fechar fotos' : `Ver ${showcase.photos.length} fotos`}
+                                <svg
+                                  className={`w-3 h-3 transition-transform ${expandedResult === acc.id ? 'rotate-180' : ''}`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <span
                           className={`text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap ${

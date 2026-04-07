@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getPrices, PriceResult } from '@/lib/pricing'
@@ -19,73 +19,6 @@ function formatBRL(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-// Photo map — same photos as homepage
-const accommodationPhotos: Record<string, string[]> = {
-  'Área de Camping': [
-    '/fotos/camping/camping-01.jpeg',
-    '/fotos/camping/camping-02.jpeg',
-    '/fotos/camping/camping-03.jpeg',
-    '/fotos/camping/cozinha-01.jpeg',
-    '/fotos/camping/cozinha-02.jpeg',
-    '/fotos/camping/cozinha-03.jpeg',
-    '/fotos/camping/banheiro-01.jpeg',
-  ],
-  'Chalé 1': Array.from({ length: 12 }, (_, i) => `/fotos/chale1/chale1-${String(i + 1).padStart(2, '0')}.jpeg`),
-  'Chalé 2': Array.from({ length: 8 }, (_, i) => `/fotos/chale2/chale2-${String(i + 1).padStart(2, '0')}.jpeg`),
-  'Chalé 3': Array.from({ length: 7 }, (_, i) => `/fotos/chale3/chale3-${String(i + 1).padStart(2, '0')}.jpeg`),
-  'Suíte': Array.from({ length: 7 }, (_, i) => `/fotos/suite/suite-${String(i + 1).padStart(2, '0')}.jpeg`),
-  'Cabana 1': ['/fotos/bangalo1/bangalo1-01.jpeg', '/fotos/bangalo1/bangalo1-02.jpeg'],
-  'Cabana 2': ['/fotos/bangalo2/bangalo2-01.jpeg', '/fotos/bangalo2/bangalo2-02.jpeg'],
-}
-
-function PhotoGallery({ photos, alt }: { photos: string[]; alt: string }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  function scroll(direction: 'left' | 'right') {
-    if (!scrollRef.current) return
-    const amount = scrollRef.current.clientWidth * 0.7
-    scrollRef.current.scrollBy({
-      left: direction === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    })
-  }
-
-  return (
-    <div className="relative group">
-      <button
-        type="button"
-        onClick={() => scroll('left')}
-        className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-stone-800 w-9 h-9 rounded-full flex items-center justify-center shadow-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
-
-      <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide">
-        {photos.map((src, i) => (
-          <img
-            key={i}
-            src={src}
-            alt={`${alt} - foto ${i + 1}`}
-            className="h-44 w-auto rounded-lg object-cover snap-start shrink-0"
-            loading="lazy"
-          />
-        ))}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => scroll('right')}
-        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white text-stone-800 w-9 h-9 rounded-full flex items-center justify-center shadow-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-    </div>
-  )
-}
 
 function ReservarForm() {
   const searchParams = useSearchParams()
@@ -265,16 +198,6 @@ function ReservarForm() {
         {/* Reservation summary */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-3">Resumo da reserva</h2>
-
-          {/* Photo gallery */}
-          {accommodation && accommodationPhotos[accommodation.name] && (
-            <div className="mb-4">
-              <PhotoGallery
-                photos={accommodationPhotos[accommodation.name]}
-                alt={accommodation.name}
-              />
-            </div>
-          )}
 
           <div className="space-y-2">
             <div className="flex justify-between">
