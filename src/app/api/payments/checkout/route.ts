@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       },
     }
 
-    // Mercado Pago rejects localhost URLs for back_urls and webhooks
+    // Add back_urls and webhook for production (not localhost)
     if (!baseUrl.includes('localhost')) {
       preferenceBody.back_urls = {
         success: `${baseUrl}/reserva/sucesso?id=${reservation_id}`,
@@ -44,7 +44,6 @@ export async function POST(request: Request) {
         pending: `${baseUrl}/reserva/pendente?id=${reservation_id}`,
       }
       preferenceBody.auto_return = 'approved'
-      preferenceBody.notification_url = `${baseUrl}/api/payments/webhook`
     }
 
     const result = await preference.create({
