@@ -36,15 +36,8 @@ export async function POST(request: Request) {
       },
     }
 
-    // Add back_urls and webhook for production (not localhost)
-    if (!baseUrl.includes('localhost')) {
-      preferenceBody.back_urls = {
-        success: `${baseUrl}/reserva/sucesso?id=${reservation_id}`,
-        failure: `${baseUrl}/reserva/falha?id=${reservation_id}`,
-        pending: `${baseUrl}/reserva/pendente?id=${reservation_id}`,
-      }
-      preferenceBody.auto_return = 'approved'
-    }
+    // TODO: add back_urls once custom domain is configured
+    // Mercado Pago rejects .vercel.app URLs
 
     const result = await preference.create({
       body: preferenceBody as Parameters<typeof preference.create>[0]['body'],
