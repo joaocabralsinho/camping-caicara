@@ -57,9 +57,9 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Erro ao criar checkout:', error)
-    const message = error instanceof Error ? error.message : String(error)
+    const detail = error instanceof Error ? error.message : JSON.stringify(error)
     return Response.json(
-      { error: 'Erro ao gerar pagamento', detail: message },
+      { error: 'Erro ao gerar pagamento', detail },
       { status: 500 }
     )
   }
